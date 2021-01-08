@@ -91,6 +91,7 @@ class DQN(AlgoBase):
                  dynamics=None,
                  impl=None,
                  **kwargs):
+        print('-'*30+"Constructing DQN"+'-'*30)
         super().__init__(batch_size=batch_size,
                          n_frames=n_frames,
                          n_steps=n_steps,
