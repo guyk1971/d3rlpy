@@ -14,9 +14,11 @@ from d3rlpy.preprocessing import Scaler
 
 class DummyImpl(TorchImplBase):
     def __init__(self, observation_shape, action_size):
-        self.observation_shape = observation_shape
-        self.action_size = action_size
+        self._observation_shape = observation_shape
+        self._action_size = action_size
         self.batch_size = 32
+        self._device = "cpu:0"
+        self._scaler = None
 
     def save_model(self, fname):
         pass
@@ -24,11 +26,27 @@ class DummyImpl(TorchImplBase):
     def load_model(self, fname):
         pass
 
-    def predict(self, x, action):
+    def _predict(self, x, action):
         pass
 
-    def generate(self, x, action):
+    def _generate(self, x, action):
         pass
+
+    @property
+    def observation_shape(self):
+        return self._observation_shape
+
+    @property
+    def action_size(self):
+        return self._action_size
+
+    @property
+    def device(self):
+        return self._device
+
+    @property
+    def scaler(self):
+        return self._scaler
 
 
 class DummyAlgo:
@@ -48,7 +66,7 @@ def dynamics_tester(dynamics, observation_shape, action_size=2):
 
     base_tester(dynamics, impl, observation_shape, action_size)
 
-    dynamics.impl = impl
+    dynamics._impl = impl
 
     # check predict
     x = np.random.random((2, 3)).tolist()
@@ -67,12 +85,12 @@ def dynamics_tester(dynamics, observation_shape, action_size=2):
     assert variance == ref_variance
 
 
-def dynamics_update_tester(dynamics,
-                           observation_shape,
-                           action_size,
-                           discrete=False):
-    transitions = base_update_tester(dynamics, observation_shape, action_size,
-                                     discrete)
+def dynamics_update_tester(
+    dynamics, observation_shape, action_size, discrete=False
+):
+    transitions = base_update_tester(
+        dynamics, observation_shape, action_size, discrete
+    )
 
     # dummy algo
     algo = DummyAlgo(action_size, discrete)
@@ -82,7 +100,7 @@ def dynamics_update_tester(dynamics,
 
 
 def impl_tester(impl, discrete):
-    observations = np.random.random((100, ) + impl.observation_shape)
+    observations = np.random.random((100,) + impl.observation_shape)
     if discrete:
         actions = np.random.randint(impl.action_size, size=100)
     else:
@@ -90,13 +108,13 @@ def impl_tester(impl, discrete):
 
     # check predict
     y, rewards, variance = impl.predict(observations, actions)
-    assert y.shape == (100, ) + impl.observation_shape
+    assert y.shape == (100,) + impl.observation_shape
     assert rewards.shape == (100, 1)
     assert variance.shape == (100, 1)
 
     # check generate
     y, rewards = impl.generate(observations, actions)
-    assert y.shape == (100, ) + impl.observation_shape
+    assert y.shape == (100,) + impl.observation_shape
     assert rewards.shape == (100, 1)
 
 
@@ -104,5 +122,5 @@ def torch_impl_tester(impl, discrete):
     impl_tester(impl, discrete)
 
     # check save_model and load_model
-    impl.save_model(os.path.join('test_data', 'model.pt'))
-    impl.load_model(os.path.join('test_data', 'model.pt'))
+    impl.save_model(os.path.join("test_data", "model.pt"))
+    impl.load_model(os.path.join("test_data", "model.pt"))

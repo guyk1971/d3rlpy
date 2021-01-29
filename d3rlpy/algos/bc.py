@@ -1,11 +1,93 @@
-from .base import AlgoBase
-from .torch.bc_impl import BCImpl, DiscreteBCImpl
-from ..optimizers import AdamFactory
-from ..argument_utils import check_encoder, check_use_gpu, check_augmentation
+from typing import Any, List, Optional, Sequence, Union
+from abc import abstractmethod
+
+import numpy as np
+
+from .base import AlgoBase, DataGenerator
+from .torch.bc_impl import BCBaseImpl, BCImpl, DiscreteBCImpl
+from ..augmentation import AugmentationPipeline
+from ..dataset import TransitionMiniBatch
+from ..models.encoders import EncoderFactory
+from ..models.optimizers import OptimizerFactory, AdamFactory
+from ..gpu import Device
+from ..argument_utility import check_encoder, check_use_gpu, check_augmentation
+from ..argument_utility import EncoderArg, UseGPUArg, AugmentationArg, ScalerArg
+from ..argument_utility import ActionScalerArg
+from ..constants import IMPL_NOT_INITIALIZED_ERROR
 
 
-class BC(AlgoBase):
-    r""" Behavior Cloning algorithm.
+class _BCBase(AlgoBase):
+    _learning_rate: float
+    _optim_factory: OptimizerFactory
+    _encoder_factory: EncoderFactory
+    _augmentation: AugmentationPipeline
+    _use_gpu: Optional[Device]
+    _impl: Optional[BCBaseImpl]
+
+    def __init__(
+        self,
+        *,
+        learning_rate: float = 1e-3,
+        optim_factory: OptimizerFactory = AdamFactory(),
+        encoder_factory: EncoderArg = "default",
+        batch_size: int = 100,
+        n_frames: int = 1,
+        use_gpu: UseGPUArg = False,
+        scaler: ScalerArg = None,
+        action_scaler: ActionScalerArg = None,
+        augmentation: AugmentationArg = None,
+        generator: Optional[DataGenerator] = None,
+        impl: Optional[BCBaseImpl] = None,
+        **kwargs: Any
+    ):
+        super().__init__(
+            batch_size=batch_size,
+            n_frames=n_frames,
+            n_steps=1,
+            gamma=1.0,
+            scaler=scaler,
+            action_scaler=action_scaler,
+            generator=generator,
+        )
+        self._learning_rate = learning_rate
+        self._optim_factory = optim_factory
+        self._encoder_factory = check_encoder(encoder_factory)
+        self._augmentation = check_augmentation(augmentation)
+        self._use_gpu = check_use_gpu(use_gpu)
+        self._impl = impl
+
+    @abstractmethod
+    def create_impl(
+        self, observation_shape: Sequence[int], action_size: int
+    ) -> None:
+        pass
+
+    def update(
+        self, epoch: int, total_step: int, batch: TransitionMiniBatch
+    ) -> List[Optional[float]]:
+        assert self._impl is not None, IMPL_NOT_INITIALIZED_ERROR
+        loss = self._impl.update_imitator(batch.observations, batch.actions)
+        return [loss]
+
+    def predict_value(
+        self,
+        x: Union[np.ndarray, List[Any]],
+        action: Union[np.ndarray, List[Any]],
+        with_std: bool = False,
+    ) -> np.ndarray:
+        """value prediction is not supported by BC algorithms."""
+        raise NotImplementedError("BC does not support value estimation.")
+
+    def sample_action(self, x: Union[np.ndarray, List[Any]]) -> None:
+        """sampling action is not supported by BC algorithm."""
+        raise NotImplementedError("BC does not support sampling action.")
+
+    def get_loss_labels(self) -> List[str]:
+        return ["loss"]
+
+
+class BC(_BCBase):
+    r"""Behavior Cloning algorithm.
 
     Behavior Cloning (BC) is to imitate actions in the dataset via a supervised
     learning approach.
@@ -20,95 +102,48 @@ class BC(AlgoBase):
 
     Args:
         learning_rate (float): learing rate.
-        optim_factory (d3rlpy.optimizers.OptimizerFactory): optimizer factory.
-        encoder_factory (d3rlpy.encoders.EncoderFactory or str):
+        optim_factory (d3rlpy.models.optimizers.OptimizerFactory):
+            optimizer factory.
+        encoder_factory (d3rlpy.models.encoders.EncoderFactory or str):
             encoder factory.
         batch_size (int): mini-batch size.
         n_frames (int): the number of frames to stack for image observation.
         use_gpu (bool, int or d3rlpy.gpu.Device):
             flag to use GPU, device ID or device.
         scaler (d3rlpy.preprocessing.Scaler or str): preprocessor.
-            The available options are `['pixel', 'min_max', 'standard']`
+            The available options are `['pixel', 'min_max', 'standard']`.
+        action_scaler (d3rlpy.preprocessing.ActionScaler or str):
+            action scaler. The available options are ``['min_max']``.
         augmentation (d3rlpy.augmentation.AugmentationPipeline or list(str)):
             augmentation pipeline.
-        dynamics (d3rlpy.dynamics.base.DynamicsBase): dynamics model for data
-            augmentation.
+        generator (d3rlpy.algos.base.DataGenerator): dynamic dataset generator
+            (e.g. model-based RL).
         impl (d3rlpy.algos.torch.bc_impl.BCImpl):
             implemenation of the algorithm.
-
-    Attributes:
-        learning_rate (float): learing rate.
-        optim_factory (d3rlpy.optimizers.OptimizerFactory): optimizer factory.
-        encoder_factory (d3rlpy.encoders.EncoderFactory): encoder factory.
-        batch_size (int): mini-batch size.
-        n_frames (int): the number of frames to stack for image observation.
-        use_gpu (d3rlpy.gpu.Device): GPU device.
-        scaler (d3rlpy.preprocessing.Scaler): preprocessor.
-        augmentation (d3rlpy.augmentation.AugmentationPipeline):
-            augmentation pipeline.
-        dynamics (d3rlpy.dynamics.base.DynamicsBase): dynamics model.
-        impl (d3rlpy.algos.torch.bc_impl.BCImpl):
-            implemenation of the algorithm.
-        eval_results_ (dict): evaluation results.
 
     """
-    def __init__(self,
-                 *,
-                 learning_rate=1e-3,
-                 optim_factory=AdamFactory(),
-                 encoder_factory='default',
-                 batch_size=100,
-                 n_frames=1,
-                 use_gpu=False,
-                 scaler=None,
-                 augmentation=None,
-                 dynamics=None,
-                 impl=None,
-                 **kwargs):
-        super().__init__(batch_size=batch_size,
-                         n_frames=n_frames,
-                         n_steps=1,
-                         gamma=1.0,
-                         scaler=scaler,
-                         dynamics=dynamics)
-        self.learning_rate = learning_rate
-        self.optim_factory = optim_factory
-        self.encoder_factory = check_encoder(encoder_factory)
-        self.augmentation = check_augmentation(augmentation)
-        self.use_gpu = check_use_gpu(use_gpu)
-        self.impl = impl
 
-    def create_impl(self, observation_shape, action_size):
-        self.impl = BCImpl(observation_shape=observation_shape,
-                           action_size=action_size,
-                           learning_rate=self.learning_rate,
-                           optim_factory=self.optim_factory,
-                           encoder_factory=self.encoder_factory,
-                           use_gpu=self.use_gpu,
-                           scaler=self.scaler,
-                           augmentation=self.augmentation)
-        self.impl.build()
+    _impl: Optional[BCImpl]
 
-    def update(self, epoch, itr, batch):
-        loss = self.impl.update_imitator(batch.observations, batch.actions)
-        return (loss, )
-
-    def predict_value(self, x, action):
-        """ value prediction is not supported by BC algorithms.
-        """
-        raise NotImplementedError('BC does not support value estimation.')
-
-    def sample_action(self, x):
-        """ sampling action is not supported by BC algorithm.
-        """
-        raise NotImplementedError('BC does not support sampling action.')
-
-    def _get_loss_labels(self):
-        return ['loss']
+    def create_impl(
+        self, observation_shape: Sequence[int], action_size: int
+    ) -> None:
+        self._impl = BCImpl(
+            observation_shape=observation_shape,
+            action_size=action_size,
+            learning_rate=self._learning_rate,
+            optim_factory=self._optim_factory,
+            encoder_factory=self._encoder_factory,
+            use_gpu=self._use_gpu,
+            scaler=self._scaler,
+            action_scaler=self._action_scaler,
+            augmentation=self._augmentation,
+        )
+        self._impl.build()
 
 
-class DiscreteBC(BC):
-    r""" Behavior Cloning algorithm for discrete control.
+class DiscreteBC(_BCBase):
+    r"""Behavior Cloning algorithm for discrete control.
 
     Behavior Cloning (BC) is to imitate actions in the dataset via a supervised
     learning approach.
@@ -125,8 +160,9 @@ class DiscreteBC(BC):
 
     Args:
         learning_rate (float): learing rate.
-        optim_factory (d3rlpy.optimizers.OptimizerFactory): optimizer factory.
-        encoder_factory (d3rlpy.encoders.EncoderFactory or str):
+        optim_factory (d3rlpy.models.optimizers.OptimizerFactory):
+            optimizer factory.
+        encoder_factory (d3rlpy.models.encoders.EncoderFactory or str):
             encoder factory.
         batch_size (int): mini-batch size.
         n_frames (int): the number of frames to stack for image observation.
@@ -137,63 +173,59 @@ class DiscreteBC(BC):
             The available options are `['pixel', 'min_max', 'standard']`
         augmentation (d3rlpy.augmentation.AugmentationPipeline or list(str)):
             augmentation pipeline.
-        dynamics (d3rlpy.dynamics.base.DynamicsBase): dynamics model for data
-            augmentation.
+        generator (d3rlpy.algos.base.DataGenerator): dynamic dataset generator
+            (e.g. model-based RL).
         impl (d3rlpy.algos.torch.bc_impl.DiscreteBCImpl):
             implemenation of the algorithm.
-
-    Attributes:
-        learning_rate (float): learing rate.
-        optim_factory (d3rlpy.optimizers.OptimizerFactory): optimizer factory.
-        encoder_factory (d3rlpy.encoders.EncoderFactory): encoder factory.
-        batch_size (int): mini-batch size.
-        n_frames (int): the number of frames to stack for image observation.
-        beta (float): reguralization factor.
-        use_gpu (d3rlpy.gpu.Device): GPU device.
-        scaler (d3rlpy.preprocessing.Scaler): preprocessor.
-        augmentation (d3rlpy.augmentation.AugmentationPipeline):
-            augmentation pipeline.
-        dynamics (d3rlpy.dynamics.base.DynamicsBase): dynamics model.
-        impl (d3rlpy.algos.torch.bc_impl.DiscreteBCImpl):
-            implemenation of the algorithm.
-        eval_results_ (dict): evaluation results.
 
     """
-    def __init__(self,
-                 *,
-                 learning_rate=1e-3,
-                 optim_factory=AdamFactory(),
-                 encoder_factory='default',
-                 batch_size=100,
-                 n_frames=1,
-                 beta=0.5,
-                 use_gpu=False,
-                 scaler=None,
-                 augmentation=None,
-                 dynamics=None,
-                 impl=None,
-                 **kwargs):
-        super().__init__(learning_rate=learning_rate,
-                         optim_factory=optim_factory,
-                         encoder_factory=encoder_factory,
-                         batch_size=batch_size,
-                         n_frames=n_frames,
-                         use_gpu=use_gpu,
-                         scaler=scaler,
-                         augmentation=augmentation,
-                         dynamics=dynamics,
-                         impl=impl,
-                         **kwargs)
-        self.beta = beta
 
-    def create_impl(self, observation_shape, action_size):
-        self.impl = DiscreteBCImpl(observation_shape=observation_shape,
-                                   action_size=action_size,
-                                   learning_rate=self.learning_rate,
-                                   optim_factory=self.optim_factory,
-                                   encoder_factory=self.encoder_factory,
-                                   beta=self.beta,
-                                   use_gpu=self.use_gpu,
-                                   scaler=self.scaler,
-                                   augmentation=self.augmentation)
-        self.impl.build()
+    _beta: float
+    _impl: Optional[DiscreteBCImpl]
+
+    def __init__(
+        self,
+        *,
+        learning_rate: float = 1e-3,
+        optim_factory: OptimizerFactory = AdamFactory(),
+        encoder_factory: EncoderArg = "default",
+        batch_size: int = 100,
+        n_frames: int = 1,
+        beta: float = 0.5,
+        use_gpu: UseGPUArg = False,
+        scaler: ScalerArg = None,
+        augmentation: AugmentationArg = None,
+        generator: Optional[DataGenerator] = None,
+        impl: Optional[DiscreteBCImpl] = None,
+        **kwargs: Any
+    ):
+        super().__init__(
+            learning_rate=learning_rate,
+            optim_factory=optim_factory,
+            encoder_factory=encoder_factory,
+            batch_size=batch_size,
+            n_frames=n_frames,
+            use_gpu=use_gpu,
+            scaler=scaler,
+            augmentation=augmentation,
+            generator=generator,
+            impl=impl,
+            **kwargs
+        )
+        self._beta = beta
+
+    def create_impl(
+        self, observation_shape: Sequence[int], action_size: int
+    ) -> None:
+        self._impl = DiscreteBCImpl(
+            observation_shape=observation_shape,
+            action_size=action_size,
+            learning_rate=self._learning_rate,
+            optim_factory=self._optim_factory,
+            encoder_factory=self._encoder_factory,
+            beta=self._beta,
+            use_gpu=self._use_gpu,
+            scaler=self._scaler,
+            augmentation=self._augmentation,
+        )
+        self._impl.build()

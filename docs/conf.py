@@ -39,7 +39,8 @@ extensions = [
     'sphinx.ext.napoleon',
     'sphinx.ext.mathjax',
     'sphinx.ext.extlinks',
-    'sphinx.ext.intersphinx'
+    'sphinx.ext.intersphinx',
+    'sphinx.ext.autodoc.typehints'
 ]
 
 # Add any paths that contain templates here, relative to this directory.
@@ -68,11 +69,19 @@ html_theme = 'sphinx_rtd_theme'
 # so a file named "default.css" will overwrite the builtin "default.css".
 html_static_path = ['_static']
 
+# logo image in the sidebar
+html_logo = '_static/logo.png'
+
+# setup custom css
+def setup(app):
+    app.add_css_file('css/d3rlpy.css')
 
 # disable document page source link
 html_show_sourcelink = False
 
 autosummary_generate = True
+
+autodoc_typehints = 'description'
 
 intersphinx_mapping = {
     'python': ('https://docs.python.org/3/', None),

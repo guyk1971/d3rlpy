@@ -1,28 +1,49 @@
+from typing import Optional, Sequence, Tuple
+from abc import abstractmethod
+
+import numpy as np
 import torch
 
-from d3rlpy.dynamics.base import DynamicsImplBase
-from d3rlpy.gpu import Device
-from d3rlpy.algos.torch.utility import to_cuda, to_cpu
-from d3rlpy.algos.torch.utility import torch_api, eval_api
-from d3rlpy.algos.torch.utility import map_location
-from d3rlpy.algos.torch.utility import get_state_dict, set_state_dict
+from ..base import DynamicsImplBase
+from ...gpu import Device
+from ...preprocessing import Scaler, ActionScaler
+from ...torch_utility import to_cuda, to_cpu
+from ...torch_utility import torch_api, eval_api
+from ...torch_utility import map_location
+from ...torch_utility import get_state_dict, set_state_dict
 
 
 class TorchImplBase(DynamicsImplBase):
-    def __init__(self, observation_shape, action_size, scaler):
-        self.observation_shape = observation_shape
-        self.action_size = action_size
-        self.scaler = scaler
-        self.device = 'cpu:0'
+
+    _observation_shape: Sequence[int]
+    _action_size: int
+    _scaler: Optional[Scaler]
+    _action_scaler: Optional[ActionScaler]
+    _device: str
+
+    def __init__(
+        self,
+        observation_shape: Sequence[int],
+        action_size: int,
+        scaler: Optional[Scaler],
+        action_scaler: Optional[ActionScaler],
+    ):
+        self._observation_shape = observation_shape
+        self._action_size = action_size
+        self._scaler = scaler
+        self._action_scaler = action_scaler
+        self._device = "cpu:0"
 
     @eval_api
-    @torch_api(scaler_targets=['x'])
-    def predict(self, x, action):
+    @torch_api(scaler_targets=["x"], action_scaler_targets=["action"])
+    def predict(
+        self, x: torch.Tensor, action: torch.Tensor
+    ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
         with torch.no_grad():
             observation, reward, variance = self._predict(x, action)
 
-            if self.scaler:
-                observation = self.scaler.reverse_transform(observation)
+            if self._scaler:
+                observation = self._scaler.reverse_transform(observation)
 
         observation = observation.cpu().detach().numpy()
         reward = reward.cpu().detach().numpy()
@@ -30,36 +51,64 @@ class TorchImplBase(DynamicsImplBase):
 
         return observation, reward, variance
 
-    def _predict(self, x, action):
-        raise NotImplementedError
+    @abstractmethod
+    def _predict(
+        self, x: torch.Tensor, action: torch.Tensor
+    ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+        pass
 
     @eval_api
-    @torch_api(scaler_targets=['x'])
-    def generate(self, x, action):
+    @torch_api(scaler_targets=["x"], action_scaler_targets=["action"])
+    def generate(
+        self, x: torch.Tensor, action: torch.Tensor
+    ) -> Tuple[np.ndarray, np.ndarray]:
         with torch.no_grad():
             observation, reward = self._generate(x, action)
 
-            if self.scaler:
-                observation = self.scaler.reverse_transform(observation)
+            if self._scaler:
+                observation = self._scaler.reverse_transform(observation)
 
         observation = observation.cpu().detach().numpy()
         reward = reward.cpu().detach().numpy()
         return observation, reward
 
-    def _generate(self, x, action):
-        raise NotImplementedError
+    @abstractmethod
+    def _generate(
+        self, x: torch.Tensor, action: torch.Tensor
+    ) -> Tuple[torch.Tensor, torch.Tensor]:
+        pass
 
-    def to_gpu(self, device=Device()):
-        self.device = 'cuda:%d' % device.get_id()
-        to_cuda(self, self.device)
+    def to_gpu(self, device: Device = Device()) -> None:
+        self._device = "cuda:%d" % device.get_id()
+        to_cuda(self, self._device)
 
-    def to_cpu(self):
-        self.device = 'cpu:0'
+    def to_cpu(self) -> None:
+        self._device = "cpu:0"
         to_cpu(self)
 
-    def save_model(self, fname):
+    def save_model(self, fname: str) -> None:
         torch.save(get_state_dict(self), fname)
 
-    def load_model(self, fname):
-        chkpt = torch.load(fname, map_location=map_location(self.device))
+    def load_model(self, fname: str) -> None:
+        chkpt = torch.load(fname, map_location=map_location(self._device))
         set_state_dict(self, chkpt)
+
+    @property
+    def observation_shape(self) -> Sequence[int]:
+        return self._observation_shape
+
+    @property
+    def action_size(self) -> int:
+        return self._action_size
+
+    @property
+    def device(self) -> str:
+        return self._device
+
+    @property
+    def scaler(self) -> Optional[Scaler]:
+        return self._scaler
+
+    @property
+    def action_scaler(self) -> Optional[ActionScaler]:
+        return self._action_scaler

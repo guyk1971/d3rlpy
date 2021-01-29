@@ -1,14 +1,16 @@
+from typing import Any, ClassVar, Dict, Optional, Tuple, cast
+
 import numpy as np
 import torch
 import torch.nn as nn
 import kornia.augmentation as aug
-
 from kornia.color.hsv import hsv_to_rgb, rgb_to_hsv
+
 from .base import Augmentation
 
 
 class RandomShift(Augmentation):
-    """ Random shift augmentation.
+    """Random shift augmentation.
 
     References:
         * `Kostrikov et al., Image Augmentation Is All You Need: Regularizing
@@ -18,51 +20,35 @@ class RandomShift(Augmentation):
     Args:
         shift_size (int): size to shift image.
 
-    Attributes:
-        shift_size (int): size to shift image.
-
     """
 
-    TYPE = 'random_shift'
+    TYPE: ClassVar[str] = "random_shift"
+    _shift_size: int
+    _operation: Optional[nn.Sequential]
 
-    def __init__(self, shift_size=4):
-        self.shift_size = shift_size
+    def __init__(self, shift_size: int = 4):
+        self._shift_size = shift_size
         self._operation = None
 
-    def _setup(self, x):
+    def _setup(self, x: torch.Tensor) -> None:
         height, width = x.shape[-2:]
-        self._operation = nn.Sequential(nn.ReplicationPad2d(self.shift_size),
-                                        aug.RandomCrop((height, width)))
+        self._operation = nn.Sequential(
+            nn.ReplicationPad2d(self._shift_size),
+            aug.RandomCrop((height, width)),
+        )
 
-    def transform(self, x):
-        """ Returns shifted images.
-
-        Args:
-            x (torch.Tensor): observation tensor.
-
-        Returns:
-            torch.Tensor: processed observation tensor.
-
-        """
+    def transform(self, x: torch.Tensor) -> torch.Tensor:
         if not self._operation:
             self._setup(x)
-        return self._operation(x)
+        assert self._operation is not None
+        return cast(torch.Tensor, self._operation(x))
 
-    def get_params(self, deep=False):
-        """ Returns augmentation parameters.
-
-        Args:
-            deep (bool): flag to deeply copy objects.
-
-        Returns:
-            dict: augmentation parameters.
-
-        """
-        return {'shift_size': self.shift_size}
+    def get_params(self, deep: bool = False) -> Dict[str, Any]:
+        return {"shift_size": self._shift_size}
 
 
 class Cutout(Augmentation):
-    """ Cutout augmentation.
+    """Cutout augmentation.
 
     References:
         * `Kostrikov et al., Image Augmentation Is All You Need: Regularizing
@@ -72,44 +58,25 @@ class Cutout(Augmentation):
     Args:
         probability (float): probability to cutout.
 
-    Attributes:
-        probability (float): probability to cutout.
-
     """
 
-    TYPE = 'cutout'
+    TYPE: ClassVar[str] = "cutout"
+    _probability: float
+    _operation: aug.RandomErasing
 
-    def __init__(self, probability=0.5):
-        self.probability = probability
+    def __init__(self, probability: float = 0.5):
+        self._probability = probability
         self._operation = aug.RandomErasing(p=probability)
 
-    def transform(self, x):
-        """ Returns observation performed Cutout.
+    def transform(self, x: torch.Tensor) -> torch.Tensor:
+        return cast(torch.Tensor, self._operation(x))
 
-        Args:
-            x (torch.Tensor): observation tensor.
-
-        Returns:
-            torch.Tensor: processed observation tensor.
-
-        """
-        return self._operation(x)
-
-    def get_params(self, deep=False):
-        """ Returns augmentation parameters.
-
-        Args:
-            deep (bool): flag to deeply copy objects.
-
-        Returns:
-            dict: augmentation parameters.
-
-        """
-        return {'probability': self.probability}
+    def get_params(self, deep: bool = False) -> Dict[str, Any]:
+        return {"probability": self._probability}
 
 
 class HorizontalFlip(Augmentation):
-    """ Horizontal flip augmentation.
+    """Horizontal flip augmentation.
 
     References:
         * `Kostrikov et al., Image Augmentation Is All You Need: Regularizing
@@ -119,44 +86,25 @@ class HorizontalFlip(Augmentation):
     Args:
         probability (float): probability to flip horizontally.
 
-    Attributes:
-        probability (float): probability to flip horizontally.
-
     """
 
-    TYPE = 'horizontal_flip'
+    TYPE: ClassVar[str] = "horizontal_flip"
+    _probability: float
+    _operation: aug.RandomHorizontalFlip
 
-    def __init__(self, probability=0.1):
-        self.probability = probability
+    def __init__(self, probability: float = 0.1):
+        self._probability = probability
         self._operation = aug.RandomHorizontalFlip(p=probability)
 
-    def transform(self, x):
-        """ Returns horizontally flipped image.
+    def transform(self, x: torch.Tensor) -> torch.Tensor:
+        return cast(torch.Tensor, self._operation(x))
 
-        Args:
-            x (torch.Tensor): observation tensor.
-
-        Returns:
-            torch.Tensor: processed observation tensor.
-
-        """
-        return self._operation(x)
-
-    def get_params(self, deep=False):
-        """ Returns augmentation parameters.
-
-        Args:
-            deep (bool): flag to deeply copy objects.
-
-        Returns:
-            dict: augmentation parameters.
-
-        """
-        return {'probability': self.probability}
+    def get_params(self, deep: bool = False) -> Dict[str, Any]:
+        return {"probability": self._probability}
 
 
 class VerticalFlip(Augmentation):
-    """ Vertical flip augmentation.
+    """Vertical flip augmentation.
 
     References:
         * `Kostrikov et al., Image Augmentation Is All You Need: Regularizing
@@ -166,44 +114,25 @@ class VerticalFlip(Augmentation):
     Args:
         probability (float): probability to flip vertically.
 
-    Attributes:
-        probability (float): probability to flip vertically.
-
     """
 
-    TYPE = 'vertical_flip'
+    TYPE: ClassVar[str] = "vertical_flip"
+    _probability: float
+    _operation: aug.RandomVerticalFlip
 
-    def __init__(self, probability=0.1):
-        self.probability = probability
+    def __init__(self, probability: float = 0.1):
+        self._probability = probability
         self._operation = aug.RandomVerticalFlip(p=probability)
 
-    def transform(self, x):
-        """ Returns vertically flipped image.
+    def transform(self, x: torch.Tensor) -> torch.Tensor:
+        return cast(torch.Tensor, self._operation(x))
 
-        Args:
-            x (torch.Tensor): observation tensor.
-
-        Returns:
-            torch.Tensor: processed observation tensor.
-
-        """
-        return self._operation(x)
-
-    def get_params(self, deep=False):
-        """ Returns augmentation parameters.
-
-        Args:
-            deep (bool): flag to deeply copy objects.
-
-        Returns:
-            dict: augmentation parameters.
-
-        """
-        return {'probability': self.probability}
+    def get_params(self, deep: bool = False) -> Dict[str, Any]:
+        return {"probability": self._probability}
 
 
 class RandomRotation(Augmentation):
-    """ Random rotation augmentation.
+    """Random rotation augmentation.
 
     References:
         * `Kostrikov et al., Image Augmentation Is All You Need: Regularizing
@@ -213,44 +142,25 @@ class RandomRotation(Augmentation):
     Args:
         degree (float): range of degrees to rotate image.
 
-    Attributes:
-        degree (float): range of degrees to rotate image.
-
     """
 
-    TYPE = 'random_rotation'
+    TYPE: ClassVar[str] = "random_rotation"
+    _degree: float
+    _operation: aug.RandomRotation
 
-    def __init__(self, degree=5.0):
-        self.degree = degree
+    def __init__(self, degree: float = 5.0):
+        self._degree = degree
         self._operation = aug.RandomRotation(degrees=degree)
 
-    def transform(self, x):
-        """ Returns rotated image.
+    def transform(self, x: torch.Tensor) -> torch.Tensor:
+        return cast(torch.Tensor, self._operation(x))
 
-        Args:
-            x (torch.Tensor): observation tensor.
-
-        Returns:
-            torch.Tensor: processed observation tensor.
-
-        """
-        return self._operation(x)
-
-    def get_params(self, deep=False):
-        """ Returns augmentation parameters.
-
-        Args:
-            deep (bool): flag to deeply copy objects.
-
-        Returns:
-            dict: augmentation parameters.
-
-        """
-        return {'degree': self.degree}
+    def get_params(self, deep: bool = False) -> Dict[str, Any]:
+        return {"degree": self._degree}
 
 
 class Intensity(Augmentation):
-    r""" Intensity augmentation.
+    r"""Intensity augmentation.
 
     .. math::
 
@@ -266,45 +176,25 @@ class Intensity(Augmentation):
     Args:
         scale (float): scale of multiplier.
 
-    Attributes:
-        scale (float): scale of multiplier.
-
     """
 
-    TYPE = 'intensity'
+    TYPE: ClassVar[str] = "intensity"
+    _scale: float
 
-    def __init__(self, scale=0.1):
-        self.scale = scale
+    def __init__(self, scale: float = 0.1):
+        self._scale = scale
 
-    def transform(self, x):
-        """ Returns multiplied image.
-
-        Args:
-            x (torch.Tensor): observation tensor.
-
-        Returns:
-            torch.Tensor: processed observation tensor.
-
-        """
+    def transform(self, x: torch.Tensor) -> torch.Tensor:
         r = torch.randn(x.size(0), 1, 1, 1, device=x.device)
-        noise = 1.0 + (self.scale * r.clamp(-2.0, 2.0))
+        noise = 1.0 + (self._scale * r.clamp(-2.0, 2.0))
         return x * noise
 
-    def get_params(self, deep=False):
-        """ Returns augmentation parameters.
-
-        Args:
-            deep (bool): flag to deeply copy objects.
-
-        Returns:
-            dict: augmentation parameters.
-
-        """
-        return {'scale': self.scale}
+    def get_params(self, deep: bool = False) -> Dict[str, Any]:
+        return {"scale": self._scale}
 
 
 class ColorJitter(Augmentation):
-    """ Color Jitter augmentation.
+    """Color Jitter augmentation.
 
     This augmentation modifies the given images in the HSV channel spaces
     as well as a contrast change.
@@ -320,39 +210,30 @@ class ColorJitter(Augmentation):
         saturation (tuple): saturation scale range.
         hue (tuple): hue scale range.
 
-    Attributes:
-        brightness (tuple): brightness scale range.
-        contrast (tuple): contrast scale range.
-        saturation (tuple): saturation scale range.
-        hue (tuple): hue scale range.
-
     """
 
-    TYPE = 'color_jitter'
+    TYPE: ClassVar[str] = "color_jitter"
+    _brightness: Tuple[float, float]
+    _contrast: Tuple[float, float]
+    _saturation: Tuple[float, float]
+    _hue: Tuple[float, float]
 
-    def __init__(self,
-                 brightness=(0.6, 1.4),
-                 contrast=(0.6, 1.4),
-                 saturation=(0.6, 1.4),
-                 hue=(-0.5, 0.5)):
-        self.brightness = brightness
-        self.contrast = contrast
-        self.saturation = saturation
-        self.hue = hue
+    def __init__(
+        self,
+        brightness: Tuple[float, float] = (0.6, 1.4),
+        contrast: Tuple[float, float] = (0.6, 1.4),
+        saturation: Tuple[float, float] = (0.6, 1.4),
+        hue: Tuple[float, float] = (-0.5, 0.5),
+    ):
+        self._brightness = brightness
+        self._contrast = contrast
+        self._saturation = saturation
+        self._hue = hue
 
-    def transform(self, x):
-        """ Returns jittered images.
-
-        Args:
-            x (torch.Tensor): observation tensor.
-
-        Returns:
-            torch.Tensor: processed observation tensor.
-
-        """
+    def transform(self, x: torch.Tensor) -> torch.Tensor:
         # check if channel can be devided by three
         if x.shape[1] % 3 > 0:
-            raise ValueError('color jitter is used with stacked RGB images')
+            raise ValueError("color jitter is used with stacked RGB images")
 
         # flag for transformation order
         is_transforming_rgb_first = np.random.randint(2)
@@ -396,43 +277,34 @@ class ColorJitter(Augmentation):
 
         return flat_rgb.view(*x.shape)
 
-    def _transform_hue(self, hsv):
+    def _transform_hue(self, hsv: torch.Tensor) -> torch.Tensor:
         scale = torch.empty(hsv.shape[0], 1, 1, 1, device=hsv.device)
-        scale = scale.uniform_(*self.hue) * 255.0 / 360.0
+        scale = scale.uniform_(*self._hue) * 255.0 / 360.0
         hsv[:, :, 0, :, :] = (hsv[:, :, 0, :, :] + scale) % 1
         return hsv
 
-    def _transform_saturate(self, hsv):
+    def _transform_saturate(self, hsv: torch.Tensor) -> torch.Tensor:
         scale = torch.empty(hsv.shape[0], 1, 1, 1, device=hsv.device)
-        scale.uniform_(*self.saturation)
+        scale.uniform_(*self._saturation)
         hsv[:, :, 1, :, :] *= scale
         return hsv.clamp(0, 1)
 
-    def _transform_brightness(self, hsv):
+    def _transform_brightness(self, hsv: torch.Tensor) -> torch.Tensor:
         scale = torch.empty(hsv.shape[0], 1, 1, 1, device=hsv.device)
-        scale.uniform_(*self.brightness)
+        scale.uniform_(*self._brightness)
         hsv[:, :, 2, :, :] *= scale
         return hsv.clamp(0, 1)
 
-    def _transform_contrast(self, rgb):
+    def _transform_contrast(self, rgb: torch.Tensor) -> torch.Tensor:
         scale = torch.empty(rgb.shape[0], 1, 1, 1, 1, device=rgb.device)
-        scale.uniform_(*self.contrast)
-        means = rgb.mean(dim=(3, 4), keepdims=True)
+        scale.uniform_(*self._contrast)
+        means = rgb.mean(dim=(3, 4), keepdim=True)
         return ((rgb - means) * (scale + means)).clamp(0, 1)
 
-    def get_params(self, deep=False):
-        """ Returns augmentation parameters.
-
-        Args:
-            deep (bool): flag to deeply copy objects.
-
-        Returns:
-            dict: augmentation parameters.
-
-        """
+    def get_params(self, deep: bool = False) -> Dict[str, Any]:
         return {
-            'brightness': self.brightness,
-            'contrast': self.contrast,
-            'saturation': self.saturation,
-            'hue': self.hue
+            "brightness": self._brightness,
+            "contrast": self._contrast,
+            "saturation": self._saturation,
+            "hue": self._hue,
         }

@@ -1,23 +1,31 @@
+from typing import cast
+
+import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-
-def create_value_function(observation_shape, encoder_factory):
-    encoder = encoder_factory.create(observation_shape)
-    return ValueFunction(encoder)
+from .encoders import Encoder
 
 
-class ValueFunction(nn.Module):
-    def __init__(self, encoder):
+class ValueFunction(nn.Module):  # type: ignore
+    _encoder: Encoder
+    _fc: nn.Linear
+
+    def __init__(self, encoder: Encoder):
         super().__init__()
-        self.encoder = encoder
-        self.fc = nn.Linear(encoder.get_feature_size(), 1)
+        self._encoder = encoder
+        self._fc = nn.Linear(encoder.get_feature_size(), 1)
 
-    def forward(self, x):
-        h = self.encoder(x)
-        return self.fc(h)
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        h = self._encoder(x)
+        return cast(torch.Tensor, self._fc(h))
 
-    def compute_error(self, obs_t, ret_t):
+    def __call__(self, x: torch.Tensor) -> torch.Tensor:
+        return cast(torch.Tensor, super().__call__(x))
+
+    def compute_error(
+        self, obs_t: torch.Tensor, ret_t: torch.Tensor
+    ) -> torch.Tensor:
         v_t = self.forward(obs_t)
         loss = F.mse_loss(v_t, ret_t)
         return loss

@@ -1,10 +1,13 @@
-import numpy as np
-import torch
 import random
 
+import numpy as np
+import torch
 
-def seed(n):
-    """ Sets random seed value.
+from ._version import __version__
+
+
+def seed(n: int) -> None:
+    """Sets random seed value.
 
     Args:
         n (int): seed value.

@@ -4,6 +4,10 @@ from setuptools import setup, Extension
 
 os.environ['CFLAGS'] = '-std=c++11'
 
+# get __version__ variable
+here = os.path.abspath(os.path.dirname(__file__))
+exec(open(os.path.join(here, 'd3rlpy', '_version.py')).read())
+
 if __name__ == "__main__":
     from numpy import get_include
     from Cython.Build import cythonize
@@ -13,7 +17,7 @@ if __name__ == "__main__":
                     sources=['d3rlpy/dataset.pyx'],
                     include_dirs=[get_include(), 'd3rlpy/cpp/include'],
                     language='c++',
-                    extra_compile_args=["-std=c++11", "-O3", "-ffast-math", "-march=native"],
+                    extra_compile_args=["-std=c++11", "-O3", "-ffast-math"],
                     extra_link_args=["-std=c++11"])
 
     ext_modules = cythonize([ext],
@@ -24,7 +28,7 @@ if __name__ == "__main__":
 
     # main setup
     setup(name="d3rlpy",
-          version="0.41",
+          version=__version__,
           description="Data-driven Deep Reinforcement Learning Library as an Out-of-the-box Tool",
           long_description=open("README.md").read(),
           long_description_content_type="text/markdown",
@@ -52,19 +56,33 @@ if __name__ == "__main__":
                             "GPUtil",
                             "h5py",
                             "gym",
-                            "kornia"],
+                            "kornia",
+                            "click",
+                            "typing-extensions",
+                            "cloudpickle",
+                            "scipy"],
           packages=["d3rlpy",
                     "d3rlpy.algos",
                     "d3rlpy.algos.torch",
                     "d3rlpy.augmentation",
                     "d3rlpy.dynamics",
                     "d3rlpy.dynamics.torch",
+                    "d3rlpy.envs",
+                    "d3rlpy.iterators",
                     "d3rlpy.metrics",
                     "d3rlpy.models",
                     "d3rlpy.models.torch",
+                    "d3rlpy.online",
+                    "d3rlpy.ope",
+                    "d3rlpy.ope.torch",
                     "d3rlpy.preprocessing",
-                    "d3rlpy.online"],
-          python_requires=">=3.5.0",
+                    "d3rlpy.wrappers"],
+          python_requires=">=3.6.0",
           zip_safe=False,
-          package_data={'d3rlpy': ['*.pyx', '*.pxd', '*.h']},
-          ext_modules=ext_modules)
+          package_data={'d3rlpy': ['*.pyx',
+                                   '*.pxd',
+                                   '*.h',
+                                   '*.pyi',
+                                   'py.typed']},
+          ext_modules=ext_modules,
+          entry_points={'console_scripts': ['d3rlpy=d3rlpy.cli:cli']})

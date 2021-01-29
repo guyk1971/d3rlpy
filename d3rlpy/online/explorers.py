@@ -1,89 +1,137 @@
+from abc import ABCMeta, abstractmethod
+from typing import Any, List, Optional, Union
+from typing_extensions import Protocol
+
 import numpy as np
 
-from abc import ABCMeta, abstractmethod
+
+class _ActionProtocol(Protocol):
+    def predict(self, x: Union[np.ndarray, List[Any]]) -> np.ndarray:
+        ...
+
+    def sample_action(self, x: Union[np.ndarray, List[Any]]) -> np.ndarray:
+        ...
+
+    @property
+    def action_size(self) -> Optional[int]:
+        ...
 
 
 class Explorer(metaclass=ABCMeta):
     @abstractmethod
-    def sample(self, algo, x, step):
+    def sample(
+        self, algo: _ActionProtocol, x: np.ndarray, step: int
+    ) -> np.ndarray:
         pass
 
 
+class ConstantEpsilonGreedy(Explorer):
+    """:math:`\\epsilon`-greedy explorer with constant :math:`\\epsilon`.
+
+    Args:
+        epsilon (float): the constant :math:`\\epsilon`.
+
+    """
+
+    _epsilon: float
+
+    def __init__(self, epsilon: float):
+        self._epsilon = epsilon
+
+    def sample(
+        self, algo: _ActionProtocol, x: np.ndarray, step: int
+    ) -> np.ndarray:
+        greedy_actions = algo.predict(x)
+        random_actions = np.random.randint(algo.action_size, size=x.shape[0])
+        is_random = np.random.random(x.shape[0]) < self._epsilon
+        return np.where(is_random, random_actions, greedy_actions)
+
+
 class LinearDecayEpsilonGreedy(Explorer):
-    """ :math:`\\epsilon`-greedy explorer with linear decay schedule.
+    """:math:`\\epsilon`-greedy explorer with linear decay schedule.
 
     Args:
         start_epsilon (float): the beginning :math:`\\epsilon`.
         end_epsilon (float): the end :math:`\\epsilon`.
         duration (int): the scheduling duration.
 
-    Attributes:
-        start_epsilon (float): the beginning :math:`\\epsilon`.
-        end_epsilon (float): the end :math:`\\epsilon`.
-        duration (int): the scheduling duration.
-
     """
-    def __init__(self, start_epsilon=1.0, end_epsilon=0.1, duration=1000000):
-        self.start_epsilon = start_epsilon
-        self.end_epsilon = end_epsilon
-        self.duration = duration
 
-    def sample(self, algo, x, step):
-        """ Returns :math:`\\epsilon`-greedy action.
+    _start_epsilon: float
+    _end_epsilon: float
+    _duration: int
+
+    def __init__(
+        self,
+        start_epsilon: float = 1.0,
+        end_epsilon: float = 0.1,
+        duration: int = 1000000,
+    ):
+        self._start_epsilon = start_epsilon
+        self._end_epsilon = end_epsilon
+        self._duration = duration
+
+    def sample(
+        self, algo: _ActionProtocol, x: np.ndarray, step: int
+    ) -> np.ndarray:
+        """Returns :math:`\\epsilon`-greedy action.
 
         Args:
-            algo (d3rlpy.algos.base.AlgoBase): algorithm.
-            x (numpy.ndarray): observation.
-            step (int): current environment step.
+            algo: algorithm.
+            x: observation.
+            step: current environment step.
 
         Returns:
-            int: :math:`\\epsilon`-greedy action.
+            :math:`\\epsilon`-greedy action.
 
         """
-        if np.random.random() < self.compute_epsilon(step):
-            return np.random.randint(algo.impl.action_size)
-        return algo.predict([x])[0]
+        greedy_actions = algo.predict(x)
+        random_actions = np.random.randint(algo.action_size, size=x.shape[0])
+        is_random = np.random.random(x.shape[0]) < self.compute_epsilon(step)
+        return np.where(is_random, random_actions, greedy_actions)
 
-    def compute_epsilon(self, step):
-        """ Returns decayed :math:`\\epsilon`.
+    def compute_epsilon(self, step: int) -> float:
+        """Returns decayed :math:`\\epsilon`.
 
         Returns:
-            float: :math:`\\epsilon`.
+            :math:`\\epsilon`.
 
         """
-        if step >= self.duration:
-            return self.end_epsilon
-        base = self.start_epsilon - self.end_epsilon
-        return base * (1.0 - step / self.duration) + self.end_epsilon
+        if step >= self._duration:
+            return self._end_epsilon
+        base = self._start_epsilon - self._end_epsilon
+        return base * (1.0 - step / self._duration) + self._end_epsilon
 
 
 class NormalNoise(Explorer):
-    """ Normal noise explorer.
+    """Normal noise explorer.
 
     Args:
         mean (float): mean.
         std (float): standard deviation.
 
-    Attributes:
-        mean (float): mean.
-        std (float): standard deviation.
-
     """
-    def __init__(self, mean=0.0, std=0.1):
-        self.mean = mean
-        self.std = std
 
-    def sample(self, algo, x, *args):
-        """ Returns action with noise injection.
+    _mean: float
+    _std: float
+
+    def __init__(self, mean: float = 0.0, std: float = 0.1):
+        self._mean = mean
+        self._std = std
+
+    def sample(
+        self, algo: _ActionProtocol, x: np.ndarray, step: int
+    ) -> np.ndarray:
+        """Returns action with noise injection.
 
         Args:
-            algo (d3rlpy.algos.base.AlgoBase): algorithm.
-            x (numpy.ndarray): observation.
+            algo: algorithm.
+            x: observation.
 
         Returns:
-            numpy.ndarray: action with noise injection.
+            action with noise injection.
 
         """
-        action = algo.sample_action([x])[0]
-        noise = np.random.normal(self.mean, self.std, size=action.shape)
+        action = algo.sample_action(x)
+        noise = np.random.normal(self._mean, self._std, size=action.shape)
         return np.clip(action + noise, -1.0, 1.0)

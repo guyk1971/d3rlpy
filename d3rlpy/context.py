@@ -1,25 +1,22 @@
 from contextlib import contextmanager
+from typing import List, Iterator
 
-PARALLEL_FLAG = False
-
-
-def get_parallel_flag():
-    return PARALLEL_FLAG
+PARALLEL_FLAG_STACK: List[bool] = [False]
 
 
-@contextmanager
-def parallel():
-    global PARALLEL_FLAG
-    _prev_flag = PARALLEL_FLAG
-    PARALLEL_FLAG = True
-    yield
-    PARALLEL_FLAG = _prev_flag
+def get_parallel_flag() -> bool:
+    return PARALLEL_FLAG_STACK[-1]
 
 
 @contextmanager
-def disable_parallel():
-    global PARALLEL_FLAG
-    _prev_flag = PARALLEL_FLAG
-    PARALLEL_FLAG = False
+def parallel() -> Iterator[None]:
+    PARALLEL_FLAG_STACK.append(True)
     yield
-    PARALLEL_FLAG = _prev_flag
+    PARALLEL_FLAG_STACK.pop(-1)
+
+
+@contextmanager
+def disable_parallel() -> Iterator[None]:
+    PARALLEL_FLAG_STACK.append(False)
+    yield
+    PARALLEL_FLAG_STACK.pop(-1)

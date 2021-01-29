@@ -1,10 +1,12 @@
+from typing import Any, ClassVar, Dict
+
 import torch
 
 from .base import Augmentation
 
 
 class SingleAmplitudeScaling(Augmentation):
-    r""" Single Amplitude Scaling augmentation.
+    r"""Single Amplitude Scaling augmentation.
 
     .. math::
 
@@ -20,47 +22,27 @@ class SingleAmplitudeScaling(Augmentation):
         minimum (float): minimum amplitude scale.
         maximum (float): maximum amplitude scale.
 
-    Attributes:
-        minimum (float): minimum amplitude scale.
-        maximum (float): maximum amplitude scale.
-
     """
 
-    TYPE = 'single_amplitude_scaling'
+    TYPE: ClassVar[str] = "single_amplitude_scaling"
+    _minimum: float
+    _maximum: float
 
-    def __init__(self, minimum=0.8, maximum=1.2):
-        self.minimum = minimum
-        self.maximum = maximum
+    def __init__(self, minimum: float = 0.8, maximum: float = 1.2):
+        self._minimum = minimum
+        self._maximum = maximum
 
-    def transform(self, x):
-        """ Returns scaled observation.
-
-        Args:
-            x (torch.Tensor): observation tensor.
-
-        Returns:
-            torch.Tensor: processed observation tensor.
-
-        """
+    def transform(self, x: torch.Tensor) -> torch.Tensor:
         z = torch.empty(x.shape[0], 1, device=x.device)
-        z.uniform_(self.minimum, self.maximum)
+        z.uniform_(self._minimum, self._maximum)
         return x * z
 
-    def get_params(self, deep=False):
-        """ Returns augmentation parameters.
-
-        Args:
-            deep (bool): flag to deeply copy objects.
-
-        Returns:
-            dict: augmentation parameters.
-
-        """
-        return {'minimum': self.minimum, 'maximum': self.maximum}
+    def get_params(self, deep: bool = False) -> Dict[str, Any]:
+        return {"minimum": self._minimum, "maximum": self._maximum}
 
 
 class MultipleAmplitudeScaling(SingleAmplitudeScaling):
-    r""" Multiple Amplitude Scaling augmentation.
+    r"""Multiple Amplitude Scaling augmentation.
 
     .. math::
 
@@ -77,15 +59,11 @@ class MultipleAmplitudeScaling(SingleAmplitudeScaling):
         minimum (float): minimum amplitude scale.
         maximum (float): maximum amplitude scale.
 
-    Attributes:
-        minimum (float): minimum amplitude scale.
-        maximum (float): maximum amplitude scale.
-
     """
 
-    TYPE = 'multiple_amplitude_scaling'
+    TYPE: ClassVar[str] = "multiple_amplitude_scaling"
 
-    def transform(self, x):
+    def transform(self, x: torch.Tensor) -> torch.Tensor:
         z = torch.empty(*x.shape, device=x.device)
-        z.uniform_(self.minimum, self.maximum)
+        z.uniform_(self._minimum, self._maximum)
         return x * z

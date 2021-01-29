@@ -1,7 +1,7 @@
 Q Functions
 ===========
 
-.. module:: d3rlpy.q_functions
+.. module:: d3rlpy.models.q_functions
 
 d3rlpy provides various Q functions including state-of-the-arts, which are
 internally used in algorithm objects.
@@ -18,7 +18,7 @@ Also you can change hyper parameters.
 
 .. code-block:: python
 
-   from d3rlpy.q_functions import QRQFunctionFactory
+   from d3rlpy.models.q_functions import QRQFunctionFactory
 
    q_func = QRQFunctionFactory(n_quantiles=32)
 
@@ -44,7 +44,7 @@ the higher performance requires the more expensive computational costs.
    :toctree: generated/
    :nosignatures:
 
-   d3rlpy.q_functions.MeanQFunctionFactory
-   d3rlpy.q_functions.QRQFunctionFactory
-   d3rlpy.q_functions.IQNQFunctionFactory
-   d3rlpy.q_functions.FQFQFunctionFactory
+   d3rlpy.models.q_functions.MeanQFunctionFactory
+   d3rlpy.models.q_functions.QRQFunctionFactory
+   d3rlpy.models.q_functions.IQNQFunctionFactory
+   d3rlpy.models.q_functions.FQFQFunctionFactory

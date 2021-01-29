@@ -1,3 +1,4 @@
+from typing import Any, Dict, Type
 from .base import Augmentation
 from .image import RandomShift
 from .image import Cutout
@@ -11,23 +12,40 @@ from .vector import MultipleAmplitudeScaling
 from .pipeline import AugmentationPipeline
 from .pipeline import DrQPipeline
 
-AUGMENTATION_LIST = {}
+__all__ = [
+    "Augmentation",
+    "AugmentationPipeline",
+    "DrQPipeline",
+    "RandomShift",
+    "Cutout",
+    "HorizontalFlip",
+    "VerticalFlip",
+    "RandomRotation",
+    "Intensity",
+    "ColorJitter",
+    "SingleAmplitudeScaling",
+    "MultipleAmplitudeScaling",
+    "register_augmentation",
+    "create_augmentation",
+]
+
+AUGMENTATION_LIST: Dict[str, Type[Augmentation]] = {}
 
 
-def register_augmentation(cls):
-    """ Registers augmentation class.
+def register_augmentation(cls: Type[Augmentation]) -> None:
+    """Registers augmentation class.
 
     Args:
         cls (type): augmentation class inheriting ``Augmentation``.
 
     """
     is_registered = cls.TYPE in AUGMENTATION_LIST
-    assert not is_registered, '%s seems to be already registered' % cls.TYPE
+    assert not is_registered, "%s seems to be already registered" % cls.TYPE
     AUGMENTATION_LIST[cls.TYPE] = cls
 
 
-def create_augmentation(name, **kwargs):
-    """ Returns registered encoder factory object.
+def create_augmentation(name: str, **kwargs: Dict[str, Any]) -> Augmentation:
+    """Returns registered encoder factory object.
 
     Args:
         name (str): regsitered encoder factory type name.
@@ -37,8 +55,8 @@ def create_augmentation(name, **kwargs):
         d3rlpy.encoders.EncoderFactory: encoder factory object.
 
     """
-    assert name in AUGMENTATION_LIST, '%s seems not to be registered.' % name
-    augmentation = AUGMENTATION_LIST[name](**kwargs)
+    assert name in AUGMENTATION_LIST, "%s seems not to be registered." % name
+    augmentation = AUGMENTATION_LIST[name](**kwargs)  # type: ignore
     assert isinstance(augmentation, Augmentation)
     return augmentation
 
