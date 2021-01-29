@@ -71,7 +71,10 @@ Upon update that might affect the dataset, you should do the following steps:
 this will create a build folder `build/lib.linux-x86_64-3.7/d3rlpy`in which you'll find the file `dataset.cpython-37m-x86_64-linux-gnu.so`  
 you should copy this `.so` file to `d3rlpy/` folder, where the `dataset.pyx` is:
  - `cp build/lib.linux-x86_64-3.7/d3rlpy/dataset.cpython-37m-x86_64-linux-gnu.so d3rlpy/`
- 
+
+
+another option is to got to the location where the `setup.py` is and run the following:  
+ - `python setup.py build_ext --inplace`  
 and you're done.
  
  
