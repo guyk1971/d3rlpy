@@ -1,50 +1,11 @@
 # d3rlpy: A data-driven deep reinforcement learning library as an out-of-the-box tool
 
-![test](https://github.com/takuseno/d3rlpy/workflows/test/badge.svg)
-![build](https://github.com/takuseno/d3rlpy/workflows/build/badge.svg)
-[![Documentation Status](https://readthedocs.org/projects/d3rlpy/badge/?version=latest)](https://d3rlpy.readthedocs.io/en/latest/?badge=latest)
-[![codecov](https://codecov.io/gh/takuseno/d3rlpy/branch/master/graph/badge.svg?token=AQ02USKN6Y)](https://codecov.io/gh/takuseno/d3rlpy)
-[![Language grade: Python](https://img.shields.io/lgtm/grade/python/g/takuseno/d3rlpy.svg?logo=lgtm&logoWidth=18)](https://lgtm.com/projects/g/takuseno/d3rlpy/context:python)
-[![Gitter](https://img.shields.io/gitter/room/d3rlpy/d3rlpy)](https://gitter.im/d3rlpy/d3rlpy)
-![MIT](https://img.shields.io/badge/license-MIT-blue)
 
 d3rlpy is a data-driven deep reinforcement learning library as an out-of-the-box tool.
 
-```py
-from d3rlpy.dataset import MDPDataset
-from d3rlpy.algos import CQL
-
-# MDPDataset takes arrays of state transitions
-dataset = MDPDataset(observations, actions, rewards, terminals)
-
-# train data-driven deep RL
-cql = CQL()
-cql.fit(dataset.episodes)
-
-# ready to control
-actions = cql.predict(x)
-```
-
+This readme include some specific adaptations I've made to work with this library in debug mode.  
+(see [official readme](./README.md) for more details)
 Documentation: https://d3rlpy.readthedocs.io
-
-## key features
-
-### :zap: Designed for Data-Driven Deep Reinforcement Learning
-d3rlpy is designed for data-driven deep reinforcement learning algorithms
-where the algorithm finds the good policy within the given dataset,
-which is suitable to tasks where online interaction is not feasible.
-d3rlpy also supports the conventional online training paradigm to fit in with any cases.
-
-### :beginner: Easy-To-Use API
-d3rlpy provides state-of-the-art algorithms through scikit-learn style APIs
-without compromising flexibility that provides detailed configurations for professional users.
-Moreoever, d3rlpy is not just designed like scikit-learn, but also fully compatible with scikit-learn utilites.
-
-### :rocket: Beyond State-Of-The-Art
-d3rlpy provides further tweeks to improve performance of state-of-the-art
-algorithms potentially beyond their original papers.
-Therefore, d3rlpy enables every user to achieve professional-level
-performance just in a few lines of codes.
 
 ## installation
 d3rlpy supports Linux, macOS and Windows.
@@ -76,8 +37,28 @@ you should copy this `.so` file to `d3rlpy/` folder, where the `dataset.pyx` is:
 another option is to got to the location where the `setup.py` is and run the following:  
  - `python setup.py build_ext --inplace`  
 and you're done.
- 
- 
+   
+### Notes
+Currently there's an issue with running atari environment , e.g. when running `train_dqn.py` :
+ - if we try to run from sources - by defining the `PYTHONPATH` to include the path to d3rlpy - it doesnt run properly.
+   there's an assertion error due to reading the observations as list and not numpy array. (assert in `MDPDataset.__init__()`)
+   when changing `dataset.py` to cast the list to numpy array, we get an error on memory blowup.  
+ - the above problem is solved if we `pip install d3rlpy` and run from the installed library
+    - I havent tried to run from source when this library is installed. worth trying if possible
+    - it asks to install d4rl-atari package that defines the offline environment and probably this is what handles efficient loading of buffers to memory
+#### Solution
+After deeper investigation I've notices the following:
+ - when it asks to install d4rl_atari , pay attention that it directs to **its own version** of the package.
+   the difference is that in his package the `offline_env.__init__` sets the default `stack` to `False` (where in the original package its True)
+   so make sure you **install his version** : `pip install git+https://github.com/takuseno/d4rl-atari`
+
+ - make sure d3rlpy is not installed in your environment. otherwise it will run the installed version and code changes you apply will be ignored
+
+ - this will be enough if you want to run from pycharm
+ - but for running from command line, you need to let it know where the d3rlpy is (otherwise it will error : 'd3rlpy module not found')
+   to do that, add the export command in the .bashrc file : `export PYTHONPATH=$PYTHONPATH:"/home/guy/workspace/study/remote/d3rlpy"`
+   
+and that's all. you're ready to run the code itself. 
 
 ## supported algorithms
 | algorithm | discrete control | continuous control | data-driven RL? |

@@ -147,7 +147,9 @@ def get_atari(env_name: str) -> Tuple[MDPDataset, gym.Env]:
         import d4rl_atari  # type: ignore
 
         env = ChannelFirst(gym.make(env_name))
-        dataset = MDPDataset(discrete_action=True, **env.get_dataset())
+        data_dict = env.get_dataset()
+        dataset = MDPDataset(discrete_action=True, **data_dict)
+        # dataset = MDPDataset(discrete_action=True, **env.get_dataset())
         return dataset, env
     except ImportError as e:
         raise ImportError(
